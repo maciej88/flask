@@ -7,38 +7,48 @@
 #
 #Uwaga - nie jest to rozwiązanie bezpieczne, bo użytkownik może ręcznie zmienić tego htmla,
 # np. przy pomocy Firebuga. Ale w tej sytuacji zupełnie wystarczające, co najwyżej zepsuje sobie zabawę ;)
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session
+from flask_session import Session
 
 app = Flask(__name__, template_folder='.')
-min = 0
-max = 1000 + 1
-guess = round((max - min) / 2) + min
+
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
+
+
+def initialize_game():
+    session['min'] = 0
+    session['max'] = 1000 + 1
+    session['guess'] = round((session['max'] - session['min']) / 2) + session['min']
+
 
 @app.route('/', methods=['GET', 'POST'])
-
 def computer_guess():
-    global min
-    global max
-    global guess
+    if 'min' not in session:
+        initialize_game()
 
     if request.method == 'POST':
         answers = request.form['choice']
 
         if answers == "You get it!":
+            session.pop('min')
+            session.pop('max')
+            session.pop('guess')
             return 'I win!!!'
         if answers == 'Too high':
-            max = guess
-            guess = round((max - min) / 2) + min
+            session['max'] = session['guess']
+            session['guess'] = round((session['max'] - session['min']) / 2) + session['min']
         if answers == 'Too low':
-            min = guess
-            guess = round((max - min) / 2) + min
-        if min == max or min == 1000 or min >= max:
-            return "don't cheat!"
-        if min == max:
-            return "don't cheat!"
-        return render_template('guess_game.html', max=max, min=min, guess=guess)
+            session['min'] = session['guess']
+            session['guess'] = round((session['max'] - session['min']) / 2) + session['min']
+        if session['min'] == session['max']:
+            return "You cheated!"
+        return render_template('guess_game.html', max=session['max'], min=session['min'], guess=session['guess'])
     else:
-        return render_template('guess_game.html', max=max, min=min, guess=guess)
+        initialize_game()
+        return render_template('guess_game.html', max=session['max'], min=session['min'], guess=session['guess'])
+
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
